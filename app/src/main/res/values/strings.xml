@@ -1,3 +1,37 @@
 <resources>
     <string name="app_name">TicTacToe</string>
+
+    <!-- titles -->
+    <string name="welcome_title">Welcome</string>
+    <string name="setting_title">Settings</string>
+
+    <!-- layout/activity_welcome -->
+    <string name="game_title">Tic Tac Toe</string>
+    <string name="play_game">Play</string>
+    <string name="check_scores">Scores</string>
+    <string name="settings">Settings</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <!-- layout/activity_settings.xml -->
+    <string name="img1_title">Choose an avatar for player 1</string>
+    <string name="img2_title">Choose an avatar for player 2</string>
+    <string name="choose_img1">Select</string>
+    <string name="choose_img2">Select</string>
+    <string name="choose_default">Reset to default</string>
+    <string name="finished">Done</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- layout/activity_game.xml -->
+    <string name="turn_title">It is %s\'s turn.</string>
+    <string name="forfeit">Quit</string>
+    <string name="title_activity_result">ResultActivity</string>
+
+    <!-- result -->
+    <string name="result_title">Game over!</string>
+    <string name="winner_text">%s has won!</string>
+    <string name="score_text">1$s wins : 1$d \\n 2$s wins : 2$d</string>
+    <string name="replay">Play Again</string>
+    <string name="main_menu">Main Menu</string>
+
 </resources>
+
