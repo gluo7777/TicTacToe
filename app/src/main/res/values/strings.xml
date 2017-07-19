@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">TicTacToe</string>
+
+    <!-- Main Menu -->
+    <string name="game_title">Tic Tac Toe</string>
+    <string name="play_game">Play</string>
+    <string name="check_scores">Scores</string>
+    <string name="account">Account</string>
+
 </resources>
