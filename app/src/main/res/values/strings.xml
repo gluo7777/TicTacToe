@@ -29,9 +29,13 @@
     <!-- result -->
     <string name="result_title">Game over!</string>
     <string name="winner_text">%s has won!</string>
-    <string name="score_text">1$s wins : 1$d \\n 2$s wins : 2$d</string>
+    <string name="draw_text">The game ended in a draw!</string>
+    <string name="score_text">%1$s wins : %2$d\n%3$s wins : %4$d</string>
     <string name="replay">Play Again</string>
     <string name="main_menu">Main Menu</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 
 </resources>
 
