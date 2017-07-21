@@ -2,6 +2,7 @@ package app.william.org.tictactoe;
 
 import android.content.Context;
 import android.content.Intent;
+import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -19,47 +20,46 @@ public class GameActivity extends AppCompatActivity {
     private TextView mTurn_text;
     private Button mQuitButton;
 
+    // fragments
+    GameFragment mGameFragment;
+
     // tags
-    private static final String RESULT_TAG = "app.william.org.tictactoe.GameActivity.result";
+    private static final String TAG_RESULT = "app.william.org.tictactoe.GameActivity.result";
+    private static final String TAG_FRAG_GAME = "app.william.org.tictactoe.GameActivity.frag_game";
 
-    // onSaveInstanceState extras
-    private static final String EXTRA_FIRST = "app.william.org.tictactoe.GameActivity.first_turn";
-    private static final String EXTRA_MOVE = "app.william.org.tictactoe.GameActivity.move_count";
+    // board
+    private BoardData mBoardData;
 
-    private boolean firstPlayerTurn;
-    private static Position[][] board;
-    private int moveCount;
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putBoolean(EXTRA_FIRST, firstPlayerTurn);
-        outState.putInt(EXTRA_MOVE, moveCount);
-    }
-
+    /**
+     * inflates views
+     * set or reset game board
+     * @param savedInstanceState  does nothing
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        // initialize or retrieve variables
-        if (savedInstanceState != null) {
-            firstPlayerTurn = savedInstanceState.getBoolean(EXTRA_FIRST, true);
-            moveCount = savedInstanceState.getInt(EXTRA_MOVE, 0);
-        } else {
-            firstPlayerTurn = true;
-            moveCount = 0;
+        // empty board
+        mGridLayout = (GridLayout) findViewById(R.id.gridLayout);
+
+        // create new data or retrieve data from fragment
+        FragmentManager manager = getSupportFragmentManager();
+        mGameFragment = (GameFragment) manager.findFragmentByTag(TAG_FRAG_GAME);
+        if(mGameFragment == null){
+            mBoardData = new BoardData(true,0,mGridLayout.getRowCount(),mGridLayout.getColumnCount());
+            mGameFragment = GameFragment.newInstance();
+            manager.beginTransaction().add(mGameFragment,TAG_FRAG_GAME).commit();
+            mGameFragment.setBoardData(mBoardData);
+        }else {
+            mBoardData = mGameFragment.getBoardData();
         }
 
-        // wire widgets
+        // turn title
         mTurn_text = (TextView) findViewById(R.id.turn_text);
-        mTurn_text.setText(
-                getString(
-                        R.string.turn_title,
-                        firstPlayerTurn ?
-                                GameData.getInstance().getFirstPlayerName() :
-                                GameData.getInstance().getSecondPlayerName()
-                )
-        );
+        setTurnText(mBoardData.isFirstPlayerTurn());
+
+        // quit button
         mQuitButton = (Button) findViewById(R.id.quitbtn);
         mQuitButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -69,52 +69,73 @@ public class GameActivity extends AppCompatActivity {
             }
         });
 
-        // create empty game board
-        mGridLayout = (GridLayout) findViewById(R.id.gridLayout);
-        if (moveCount == 0) {
-            board = new Position[mGridLayout.getRowCount()][mGridLayout.getColumnCount()];
-        }
-
         // initialize board positions and images
-        int gridIndex = 0;
-        ImageView image;
+        final int[][] board = mBoardData.getBoard();
         for (int i = 0; i < board.length; i++) {
             for (int j = 0; j < board[i].length; j++) {
-                image = (ImageView) mGridLayout.getChildAt(gridIndex);
+                final ImageView image = (ImageView) mGridLayout.getChildAt(getGridPos(i,j,board.length));
                 final int row = i, col = j;
 
                 // Wire each position of grid
                 image.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        actionTurn(row, col, GameActivity.this.firstPlayerTurn ? GameData.PLAYER1 : GameData.PLAYER2);
-                        firstPlayerTurn = !firstPlayerTurn;
-                        mTurn_text.setText(
-                                getString(
-                                        R.string.turn_title,
-                                        firstPlayerTurn ?
-                                                GameData.getInstance().getFirstPlayerName() :
-                                                GameData.getInstance().getSecondPlayerName()
-                                )
-                        );
+                        if(isPositionEmpty(row,col)) {
+                            final int newGridPos = updateBoard(row, col);
+                            setImagePos(image, newGridPos);
+                            nextTurn();
+                            setTurnText(mBoardData.isFirstPlayerTurn());
+                            final int result = getWinCondition(row, col, board[row][col]);
+                            createResultDialog(result,getOccupantName(board[row][col]));
+                        }
                     }
                 });
 
-                // Initializes blank positions or retrieves previous occupants
-                if (board[i][j] != null) {
-                    board[i][j].image = image;
-                    board[i][j].image.setImageDrawable(getDrawable(
-                            board[i][j].occupant == GameData.PLAYER1 ?
-                                    R.drawable.ic_player1 :
-                                    R.drawable.ic_player2
-                    ));
-                } else {
-                    board[i][j] = new Position(image, GameData.BLANK);
-                }
-
-                gridIndex++;
+                // Resets previous occupants upon configuration changes
+                setImagePos(image,board[i][j]);
             }
         }
+    }
+
+    /**
+     * Overridden for trash cleaning purposes
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        // determines if activity has finished or just paused
+        if(isFinishing()){
+            FragmentManager manager = getSupportFragmentManager();
+            // clean up fragment
+            manager.beginTransaction().remove(mGameFragment).commit();
+        }
+    }
+
+    /**
+     * set gridlayout position to appropriate images
+     * @param imageHolder ImageView located inside a gridlayout
+     * @param occupant player occupying the grid position
+     */
+    private void setImagePos(ImageView imageHolder, int occupant){
+        if(occupant != GameData.BLANK) {
+            imageHolder.setImageDrawable(getDrawable(
+                    occupant == GameData.PLAYER1 ?
+                            R.drawable.ic_player1 :
+                            R.drawable.ic_player2
+            ));
+        }
+    }
+
+    /**
+     *
+     * @param row
+     * @param col
+     * @param width
+     * @return 1-d array position
+     */
+    private int getGridPos(int row, int col, int width){
+        return row * width + col;
     }
 
     /**
@@ -126,51 +147,71 @@ public class GameActivity extends AppCompatActivity {
         return intent;
     }
 
-    /*-------------------------------------------------------- Game Board Methods --------------------------------------------------------*/
-
-    private void actionTurn(int row, int col, int player) {
-        Position position = board[row][col];
-
-        // make sure to update model
-        if (position.occupant == GameData.BLANK) {
-
-            moveCount++;
-            position.occupant = player;
-
-            ImageView image = position.image;
-            image.setImageDrawable(
-                    getDrawable(
-                            player == GameData.PLAYER1 ?
-                                    R.drawable.ic_player1 :
-                                    R.drawable.ic_player2
-                    )
-            );
-
-            int result = getWinCondition(row, col, player);
-            if (result == player) {
-                createResultDialog(
-                        player == GameData.PLAYER1 ?
-                                GameData.getInstance().getFirstPlayerName() :
-                                GameData.getInstance().getSecondPlayerName(),
-                        false
-                );
-            } else if (result == 0) {
-                createResultDialog(
-                        "",
-                        true
-                );
-            }
+    /**
+     * Creates result dialog fragment
+     * @param result
+     * @param name
+     */
+    private void createResultDialog(int result, String name) {
+        ResultFragment dialog;
+        switch (result){
+            case -1: // game not over
+                return;
+            case 0: // draw
+                dialog = ResultFragment.newInstance(name, true);
+                break;
+            default: // a player has won
+                dialog = ResultFragment.newInstance(name, false);
+                break;
         }
+        dialog.show(getSupportFragmentManager(), TAG_RESULT);
     }
 
+    /**
+     * sets text on top of game
+     * @param isFirst
+     */
+    private void setTurnText(boolean isFirst){
+        mTurn_text.setText(
+                getString(
+                        R.string.turn_title,
+                        isFirst ?
+                                GameData.getInstance().getFirstPlayerName() :
+                                GameData.getInstance().getSecondPlayerName()
+                )
+        );
+    }
+
+    /*-------------------------------------------------------- Game Board Methods --------------------------------------------------------*/
+
+    /**
+     * updates occupant to new player
+     * @param row
+     * @param col
+     * @return
+     */
+    private int updateBoard(int row, int col) {
+       return mBoardData.getBoard()[row][col] = mBoardData.isFirstPlayerTurn() ?
+                GameData.PLAYER1 :
+                GameData.PLAYER2;
+    }
+
+    /**
+     *
+     * @param row
+     * @param col
+     * @param player
+     * @return player that won | 0 for draw | -1 if neither
+     */
     private int getWinCondition(int row, int col, int player) {
         // check for game over condition
 
+        int[][] board = mBoardData.getBoard();
         int len = board.length;
 
         // Check columns
         for (int i = 0; i < len; i++) {
-            if (board[row][i].occupant != player)
+            if (board[row][i] != player)
                 break;
             if (i == len - 1) {
                 return player;
@@ -179,7 +220,7 @@ public class GameActivity extends AppCompatActivity {
 
         // Check rows
         for (int i = 0; i < len; i++) {
-            if (board[i][col].occupant != player)
+            if (board[i][col] != player)
                 break;
             if (i == len - 1) {
                 return player;
@@ -190,7 +231,7 @@ public class GameActivity extends AppCompatActivity {
         int i = 0;
         if (row == col) {
             while (i < len) {
-                if (board[i][i].occupant != player)
+                if (board[i][i] != player)
                     break;
                 i++;
             }
@@ -204,7 +245,7 @@ public class GameActivity extends AppCompatActivity {
         int j = 2;
         if (row + col == len - 1) {
             while (i < len) {
-                if (board[i][j].occupant != player)
+                if (board[i][j] != player)
                     break;
                 i++;
                 j--;
@@ -215,26 +256,40 @@ public class GameActivity extends AppCompatActivity {
         }
 
         // Check for draw
-        if (moveCount == mGridLayout.getChildCount()) {
+        if (mBoardData.getMoveCount() == mGridLayout.getChildCount()) {
             return 0; // draw
         }
 
         return -1;
     }
 
-    private void createResultDialog(String winnerName, boolean isDraw) {
-        ResultFragment dialog = ResultFragment.newInstance(winnerName, isDraw);
-        dialog.show(getSupportFragmentManager(), RESULT_TAG);
+    /**
+     * resets isFirstPlayerTurn and increments getMoveCount
+     */
+    public void nextTurn(){
+        mBoardData.setFirstPlayerTurn(!mBoardData.isFirstPlayerTurn());
+        mBoardData.setMoveCount(mBoardData.getMoveCount() + 1);
     }
 
-    class Position {
-        ImageView image;
-        int occupant;
-
-        Position(ImageView image, int player) {
-            this.image = image;
-            this.occupant = player;
+    public String getOccupantName(int player){
+        switch (player){
+            case GameData.PLAYER1:
+                return GameData.getInstance().getFirstPlayerName();
+            case GameData.PLAYER2:
+                return GameData.getInstance().getSecondPlayerName();
+            default:
+                return "";
         }
+    }
+
+    /**
+     *
+     * @param row
+     * @param col
+     * @return true if blank occupant
+     */
+    public boolean isPositionEmpty(int row, int col){
+        return mBoardData.getBoard()[row][col] == GameData.BLANK;
     }
 }
 
