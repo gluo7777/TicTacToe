@@ -22,19 +22,33 @@ public class GameActivity extends AppCompatActivity {
     // tags
     private static final String RESULT_TAG = "app.william.org.tictactoe.GameActivity.result";
 
+    // onSaveInstanceState extras
+    private static final String EXTRA_FIRST = "app.william.org.tictactoe.GameActivity.first_turn";
+    private static final String EXTRA_MOVE = "app.william.org.tictactoe.GameActivity.move_count";
+
     private boolean firstPlayerTurn;
     private static Position[][] board;
     private int moveCount;
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(EXTRA_FIRST, firstPlayerTurn);
+        outState.putInt(EXTRA_MOVE, moveCount);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        // initialize variables
-        firstPlayerTurn = true;
-        //board = new int[9];
-        moveCount = 0;
+        // initialize or retrieve variables
+        if (savedInstanceState != null) {
+            firstPlayerTurn = savedInstanceState.getBoolean(EXTRA_FIRST, true);
+            moveCount = savedInstanceState.getInt(EXTRA_MOVE, 0);
+        } else {
+            firstPlayerTurn = true;
+            moveCount = 0;
+        }
 
         // wire widgets
         mTurn_text = (TextView) findViewById(R.id.turn_text);
@@ -55,16 +69,21 @@ public class GameActivity extends AppCompatActivity {
             }
         });
 
-        // wire gridlayout to board
+        // create empty game board
         mGridLayout = (GridLayout) findViewById(R.id.gridLayout);
-        board = new Position[mGridLayout.getRowCount()][mGridLayout.getColumnCount()];
+        if (moveCount == 0) {
+            board = new Position[mGridLayout.getRowCount()][mGridLayout.getColumnCount()];
+        }
 
+        // initialize board positions and images
         int gridIndex = 0;
         ImageView image;
         for (int i = 0; i < board.length; i++) {
             for (int j = 0; j < board[i].length; j++) {
                 image = (ImageView) mGridLayout.getChildAt(gridIndex);
                 final int row = i, col = j;
+
+                // Wire each position of grid
                 image.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
@@ -80,7 +99,19 @@ public class GameActivity extends AppCompatActivity {
                         );
                     }
                 });
-                board[i][j] = new Position(image, GameData.BLANK);
+
+                // Initializes blank positions or retrieves previous occupants
+                if (board[i][j] != null) {
+                    board[i][j].image = image;
+                    board[i][j].image.setImageDrawable(getDrawable(
+                            board[i][j].occupant == GameData.PLAYER1 ?
+                                    R.drawable.ic_player1 :
+                                    R.drawable.ic_player2
+                    ));
+                } else {
+                    board[i][j] = new Position(image, GameData.BLANK);
+                }
+
                 gridIndex++;
             }
         }
@@ -123,7 +154,7 @@ public class GameActivity extends AppCompatActivity {
                                 GameData.getInstance().getSecondPlayerName(),
                         false
                 );
-            }else if(result == 0){
+            } else if (result == 0) {
                 createResultDialog(
                         "",
                         true
@@ -184,7 +215,7 @@ public class GameActivity extends AppCompatActivity {
         }
 
         // Check for draw
-        if(moveCount == mGridLayout.getChildCount()){
+        if (moveCount == mGridLayout.getChildCount()) {
             return 0; // draw
         }
 
@@ -192,7 +223,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void createResultDialog(String winnerName, boolean isDraw) {
-        ResultFragment dialog = ResultFragment.newInstance(winnerName,isDraw);
+        ResultFragment dialog = ResultFragment.newInstance(winnerName, isDraw);
         dialog.show(getSupportFragmentManager(), RESULT_TAG);
     }
 
